@@ -2,11 +2,16 @@ import os
 import subprocess
 import webbrowser
 import zipfile
+from intencao import pesquisar, comando_, extr, apps_
+
+def tem_palavra(lista, comando):
+    palavras = comando.split()
+    return any(p in palavras for p in lista)
 
 def executar_comando(comando):
     comando = comando.lower()
 
-    if comando.startswith("criar arquivo"):
+    if tem_palavra(comando_, comando):
         nome = comando.replace("criar arquivo", "").strip()
 
         conteudo = input("O que deseja colocar no arquivo: ")
@@ -16,7 +21,7 @@ def executar_comando(comando):
 
         print(f"Arquivo '{nome}' criado com sucesso!")
 
-    elif comando.startswith("extrair"):
+    elif tem_palavra(extr, comando):
         try:
             partes = comando.split(" em ")
 
@@ -33,7 +38,7 @@ def executar_comando(comando):
         except Exception as e:
             print("Erro ao extrair:", e)
     
-    elif comando.startswith("pesquisar"):
+    if tem_palavra(pesquisar, comando):
         termo = comando.replace("pesquisar", "").strip()
         termo = termo.replace(" ", "+")
 
@@ -41,7 +46,7 @@ def executar_comando(comando):
         print(f"Abrindo busca para: {termo}...")
         webbrowser.open(url)
     
-    elif comando.startswith("abrir"):
+    elif tem_palavra(apps_, comando):
         app = comando.replace("abrir", "").strip()
 
         apps = {
@@ -50,17 +55,18 @@ def executar_comando(comando):
             "chrome": "chrome.exe",
             "edge": "msedge.exe",
             "vscode": "Code.exe",
-            "discord": "Discord.exe"
+            "discord": "Discord.exe",
+            "calculadora": "calc.exe"
         }
 
-    if app in apps:
-        try:
-            os.startfile(apps[app])
-            print(f"Abrindo {app}...")
-        except Exception as e:
-            print("Erro ao abrir:", e)
-    else:
-        print("Aplicativo não conhecido.")
+        if app in apps:
+            try:
+                os.startfile(apps[app])
+                print(f"Abrindo {app}...")
+            except Exception as e:
+                print("Erro ao abrir:", e)
+        else:
+            print("Aplicativo não conhecido.")
 
 while True:
     cmd = input(">: ")
