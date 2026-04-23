@@ -2,72 +2,119 @@ import os
 import subprocess
 import webbrowser
 import zipfile
-from intencao import pesquisar, comando_, extr, apps_
+import win32com.client
+from ia_key import inteligencia_assistente 
 
-def tem_palavra(lista, comando):
-    palavras = comando.split()
-    return any(p in palavras for p in lista)
+# --- FUNÇÕES DE APOIO ---
 
-def executar_comando(comando):
-    comando = comando.lower()
+def resolver_atalho(caminho_atalho):
+    try:
+        shell = win32com.client.Dispatch("WScript.Shell")
+        atalho = shell.CreateShortcut(caminho_atalho)
+        return atalho.TargetPath
+    except:
+        return caminho_atalho
 
-    if tem_palavra(comando_, comando):
-        nome = comando.replace("criar arquivo", "").strip()
+def buscar_apps_instalados():
+    pastas_atalhos = [
+        os.path.join(os.environ["ProgramData"], "Microsoft", "Windows", "Start Menu", "Programs"),
+        os.path.join(os.environ["AppData"], "Microsoft", "Windows", "Start Menu", "Programs")
+    ]
+    
+    meus_apps = {}
+    for pasta in pastas_atalhos:
+        if os.path.exists(pasta):
+            for raiz, dirs, arquivos in os.walk(pasta):
+                for arquivo in arquivos:
+                    if arquivo.endswith(".lnk"):
+                        nome_limpo = arquivo.replace(".lnk", "").lower()
+                        caminho_completo = os.path.join(raiz, arquivo)
+                        meus_apps[nome_limpo] = caminho_completo
+    return meus_apps
 
-        conteudo = input("O que deseja colocar no arquivo: ")
+# Agora sim o catálogo é carregado corretamente
+CATALOGO_APPS = buscar_apps_instalados()
 
-        with open(nome, "w") as arquivo:
-            arquivo.write(conteudo)
+# --- AÇÕES DO ASSISTENTE ---
 
-        print(f"Arquivo '{nome}' criado com sucesso!")
+def abrir_app(nome_app):
+    nome_app = nome_app.lower()
+    encontrado = None
+    nome_real = ""
+    
+    for nome_no_pc in CATALOGO_APPS:
+        if nome_app in nome_no_pc:
+            encontrado = CATALOGO_APPS[nome_no_pc]
+            nome_real = nome_no_pc
+            break
+            
+    if encontrado:
+        # Se for atalho (.lnk), resolve para o caminho real (.exe)
+        caminho_final = resolver_atalho(encontrado) if encontrado.endswith(".lnk") else encontrado
 
-    elif tem_palavra(extr, comando):
+        print(f"🚀 Tentando abrir: {caminho_final}")
         try:
-            partes = comando.split(" em ")
-
-            arquivo_zip = partes[0].replace("extrair ", "").strip()
-            destino = partes[1].strip()
-
-            os.makedirs(destino, exist_ok=True)
-
-            with zipfile.ZipFile(arquivo_zip, 'r') as zip_ref:
-                zip_ref.extractall(destino)
-
-            print(f"Extraído com sucesso!")
-
+            os.startfile(caminho_final)
         except Exception as e:
-            print("Erro ao extrair:", e)
-    
-    if tem_palavra(pesquisar, comando):
-        termo = comando.replace("pesquisar", "").strip()
-        termo = termo.replace(" ", "+")
+            print(f"⚠️ Erro no startfile, tentando método secundário...")
+            os.system(f'start "" "{encontrado}"')
 
-        url = f"https://www.google.com/search?q={termo}"
-        print(f"Abrindo busca para: {termo}...")
-        webbrowser.open(url)
-    
-    elif tem_palavra(apps_, comando):
-        app = comando.replace("abrir", "").strip()
+def pesquisar_google(termo):
+    url = f"https://www.google.com/search?q={termo.replace(' ', '+')}"
+    print(f"🔍 Pesquisando no Google: {termo}")
+    webbrowser.open(url)
 
-        apps = {
-            "bloco de notas": "notepad.exe",
-            "notepad": "notepad.exe",
-            "chrome": "chrome.exe",
-            "edge": "msedge.exe",
-            "vscode": "Code.exe",
-            "discord": "Discord.exe",
-            "calculadora": "calc.exe"
-        }
+def criar_arquivo_texto(valor):
+    try:
+        nome = valor.strip()
+        if "." not in nome: nome += ".txt"
+        
+        conteudo = input(f"O que deseja escrever em '{nome}': ")
+        with open(nome, "w", encoding="utf-8") as arquivo:
+            arquivo.write(conteudo)
+        print(f"✅ Arquivo '{nome}' criado com sucesso!")
+    except Exception as e:
+        print("❌ Erro ao criar o arquivo:", e)
 
-        if app in apps:
-            try:
-                os.startfile(apps[app])
-                print(f"Abrindo {app}...")
-            except Exception as e:
-                print("Erro ao abrir:", e)
-        else:
-            print("Aplicativo não conhecido.")
+def extrair_zip(valor):
+    try:
+        # Lógica simples: extrai o zip para uma pasta com o mesmo nome
+        destino = valor.replace(".zip", "")
+        os.makedirs(destino, exist_ok=True)
+        with zipfile.ZipFile(valor, 'r') as zip_ref:
+            zip_ref.extractall(destino)
+        print(f"✅ Extraído com sucesso para /{destino}!")
+    except Exception as e:
+        print("❌ Erro ao extrair:", e)
+
+# --- LOOP PRINCIPAL ---
+print("Assistente IA Ativo!")
 
 while True:
-    cmd = input(">: ")
-    executar_comando(cmd)
+    comando_usuario = input("\nO que deseja? > ")
+    
+    if comando_usuario.lower() in ["sair", "parar"]:
+        break
+
+    dados = inteligencia_assistente(comando_usuario)
+
+    if dados:
+        acao = dados.get("acao")
+        valor = dados.get("valor")
+
+        if acao == "abrir_app":
+            abrir_app(valor)
+        
+        elif acao == "pesquisar":
+            pesquisar_google(valor)
+            
+        elif acao == "criar_arquivo":
+            criar_arquivo_texto(valor)
+            
+        elif acao == "extrair_zip":
+            extrair_zip(valor)
+            
+        else:
+            print(f"🤔 IA sugeriu '{acao}', mas ainda não implementamos essa função.")
+    else:
+        print("📴 Falha na conexão com o cérebro.")

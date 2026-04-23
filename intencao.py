@@ -1,4 +1,4 @@
-pesquisar = ["pesquisa", "pesquisar",
+pesquisar = ["pesquisar", "pesquisa",
               "busca", "buscar", "procura"]
 
 comando_ = ["criar", "crie", "faça", "faz"]
