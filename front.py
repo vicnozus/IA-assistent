@@ -1,62 +1,134 @@
 import customtkinter as ctk
 
-# Configuração visual
 ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
+ctk.set_default_color_theme("dark-blue")
 
-class PainelLateral(ctk.CTk):
+
+class NovaApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        largura = 400
-        altura = 600
+        self.title("Nova")
+        self.geometry("900x550")
+        self.minsize(700, 450)
 
-        # Pega a resolução do monitor
-        largura_tela = self.winfo_screenwidth()
-        altura_tela = self.winfo_screenheight()
+        self.configure(fg_color="#0b0b0f")
 
-        pos_x = (largura_tela // 2) - (largura // 2)
-        pos_y = (altura_tela // 2) - (altura // 2)
+        # Layout principal
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
 
-        # Aplica a geometria (Faltou essa linha no seu original para os números funcionarem!)
-        self.geometry(f"{largura}x{altura}+{pos_x}+{pos_y}")
-        
-        self.overrideredirect(True)
-        self.attributes("-topmost", True)
+        # Menu lateral
+        self.sidebar = ctk.CTkFrame(self, width=220, fg_color="#111116", corner_radius=0)
+        self.sidebar.grid(row=0, column=0, sticky="nsw")
+        self.sidebar.grid_propagate(False)
 
-        # --- BOTÃO PARA FECHAR (O "X") ---
-        # Colocamos ele no topo direito
-        self.btn_fechar = ctk.CTkButton(self, text="X", width=30, height=30, 
-                                        fg_color="red", hover_color="#8B0000", 
-                                        command=self.destroy)
-        self.btn_fechar.place(x=360, y=10) # 'place' para fixar no cantinho
+        self.logo = ctk.CTkLabel(
+            self.sidebar,
+            text="NOVA",
+            font=("Segoe UI", 28, "bold"),
+            text_color="#ff2b2b"
+        )
+        self.logo.pack(pady=(30, 5))
 
-        # Título / Cabeçalho
-        self.titulo = ctk.CTkLabel(self, text="SISTEMA ASSISTENTE", font=("Courier", 20, "bold"), text_color="#00FFCC")
-        self.titulo.pack(pady=(40, 20)) # Aumentei o espaço no topo para não bater no botão
+        self.subtitulo = ctk.CTkLabel(
+            self.sidebar,
+            text="Assistente Inteligente",
+            font=("Segoe UI", 13),
+            text_color="#aaaaaa"
+        )
+        self.subtitulo.pack(pady=(0, 30))
 
-        # Console de Log
-        self.console_log = ctk.CTkTextbox(self, width=260, height=200, fg_color="#101010", text_color="#00FF00")
-        self.console_log.pack(pady=20)
-        self.console_log.insert("0.0", "> Sistema Iniciado...\n> Aguardando entrada...")
-        
-        # Campo de Entrada
-        self.entrada = ctk.CTkEntry(self, placeholder_text="Digite sua ordem...", width=250, height=40)
-        self.entrada.pack(pady=10)
+        self.status = ctk.CTkLabel(
+            self.sidebar,
+            text="● Online",
+            text_color="#45ff89",
+            font=("Segoe UI", 14)
+        )
+        self.status.pack(pady=10)
+
+        self.info = ctk.CTkLabel(
+            self.sidebar,
+            text="Reconhecimento\nde intenção",
+            text_color="#777777",
+            justify="center"
+        )
+        self.info.pack(pady=20)
+
+        # Área principal
+        self.main = ctk.CTkFrame(self, fg_color="#0b0b0f", corner_radius=0)
+        self.main.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
+
+        self.main.grid_columnconfigure(0, weight=1)
+        self.main.grid_rowconfigure(1, weight=1)
+
+        self.titulo = ctk.CTkLabel(
+            self.main,
+            text="Olá, Victor. Como posso ajudar?",
+            font=("Segoe UI", 24, "bold"),
+            text_color="#ffffff"
+        )
+        self.titulo.grid(row=0, column=0, sticky="w", pady=(0, 15))
+
+        self.chat = ctk.CTkTextbox(
+            self.main,
+            fg_color="#15151c",
+            text_color="#eeeeee",
+            corner_radius=15,
+            font=("Segoe UI", 14)
+        )
+        self.chat.grid(row=1, column=0, sticky="nsew")
+        self.chat.insert("end", "Nova: Sistema iniciado com sucesso.\n\n")
+        self.chat.configure(state="disabled")
+
+        # Campo de comando
+        self.input_frame = ctk.CTkFrame(self.main, fg_color="#0b0b0f")
+        self.input_frame.grid(row=2, column=0, sticky="ew", pady=(15, 0))
+        self.input_frame.grid_columnconfigure(0, weight=1)
+
+        self.entrada = ctk.CTkEntry(
+            self.input_frame,
+            placeholder_text="Digite um comando... ex: abra o navegador",
+            height=45,
+            fg_color="#15151c",
+            border_color="#ff2b2b",
+            text_color="#ffffff",
+            font=("Segoe UI", 14)
+        )
+        self.entrada.grid(row=0, column=0, sticky="ew", padx=(0, 10))
         self.entrada.bind("<Return>", self.enviar_comando)
 
-        # Console de Log
+        self.botao = ctk.CTkButton(
+            self.input_frame,
+            text="Enviar",
+            height=45,
+            fg_color="#b80000",
+            hover_color="#ff2b2b",
+            font=("Segoe UI", 14, "bold"),
+            command=self.enviar_comando
+        )
+        self.botao.grid(row=0, column=1)
 
-        # --- ATALHO DE TECLADO ---
-        # Se você apertar a tecla 'Esc', o programa fecha sozinho
-        self.bind("<Escape>", lambda e: self.destroy())
+    def escrever_chat(self, texto):
+        self.chat.configure(state="normal")
+        self.chat.insert("end", texto + "\n\n")
+        self.chat.see("end")
+        self.chat.configure(state="disabled")
 
-    def enviar_comando(self, event):
-        comando = self.entrada.get()
-        self.console_log.insert("end", f"\n> Processando: {comando}")
-        self.console_log.see("end") # Faz o scroll automático para a última linha
-        self.entrada.delete(0, 'end')
+    def enviar_comando(self, event=None):
+        comando = self.entrada.get().strip()
+
+        if not comando:
+            return
+
+        self.entrada.delete(0, "end")
+
+        self.escrever_chat(f"Você: {comando}")
+
+        # Resposta fake por enquanto
+        self.escrever_chat("Nova: Intenção detectada. Ainda estou em modo visual/teste.")
+
 
 if __name__ == "__main__":
-    app = PainelLateral()
+    app = NovaApp()
     app.mainloop()
