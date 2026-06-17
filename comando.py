@@ -4,6 +4,7 @@ import webbrowser
 import zipfile
 import win32com.client
 from ia_key import inteligencia_assistente 
+from intencao import interpretar_local, limpar_valor
 
 # --- FUNÇÕES DE APOIO ---
 
@@ -90,31 +91,34 @@ def extrair_zip(valor):
 # --- LOOP PRINCIPAL ---
 print("Assistente IA Ativo!")
 
-while True:
-    comando_usuario = input("\nO que deseja? > ")
+def processar_comando(comando_usuario):
+    dados = interpretar_local(comando_usuario)
+
+    if not dados:
+        dados = inteligencia_assistente(comando_usuario)
+
+    if not dados:
+        return "📴 Falha na conexão com o cérebro."
+
+    acao = dados.get("acao")
+    valor = dados.get("valor")
+    valor = limpar_valor(valor)
     
-    if comando_usuario.lower() in ["sair", "parar"]:
-        break
+    if acao == "abrir_app":
+        abrir_app(valor)
+        return f"🚀 Abrindo aplicativo: {valor}"
 
-    dados = inteligencia_assistente(comando_usuario)
+    elif acao == "pesquisar":
+        pesquisar_google(valor)
+        return f"🔍 Pesquisando: {valor}"
 
-    if dados:
-        acao = dados.get("acao")
-        valor = dados.get("valor")
+    elif acao == "criar_arquivo":
+        criar_arquivo_texto(valor)
+        return f"📄 Criando arquivo: {valor}"
 
-        if acao == "abrir_app":
-            abrir_app(valor)
-        
-        elif acao == "pesquisar":
-            pesquisar_google(valor)
-            
-        elif acao == "criar_arquivo":
-            criar_arquivo_texto(valor)
-            
-        elif acao == "extrair_zip":
-            extrair_zip(valor)
-            
-        else:
-            print(f"🤔 IA sugeriu '{acao}', mas ainda não implementamos essa função.")
-    else:
-        print("📴 Falha na conexão com o cérebro.")
+    elif acao == "extrair_zip":
+        extrair_zip(valor)
+        return f"📦 Extraindo ZIP: {valor}"
+
+    return f"🤔 Ação '{acao}' ainda não implementada."
+

@@ -1,4 +1,5 @@
 import customtkinter as ctk
+from comando import processar_comando
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
@@ -125,8 +126,10 @@ class NovaApp(ctk.CTk):
 
         self.escrever_chat(f"Você: {comando}")
 
-        # Resposta fake por enquanto
-        self.escrever_chat("Nova: Intenção detectada. Ainda estou em modo visual/teste.")
+        # Processar o comando e obter a resposta
+        resposta = processar_comando(comando)
+
+        self.escrever_chat(f"Nova: {resposta}")
 
 
 if __name__ == "__main__":
