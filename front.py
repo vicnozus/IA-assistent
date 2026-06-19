@@ -1,5 +1,8 @@
+import os
 import customtkinter as ctk
-from comando import processar_comando
+from comando import processar_comando, pesquisar_wikipedia, criar_arquivo_texto, extrair_zip
+import comando
+from intencao import interpretar_local, limpar_valor
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
@@ -7,14 +10,19 @@ ctk.set_default_color_theme("dark-blue")
 
 class NovaApp(ctk.CTk):
     def __init__(self):
+        self.aguardando_arquivo = False
+        self.nome_arquivo = ""
         super().__init__()
 
         self.title("Nova")
+        # Ícone da janela
+        caminho_icone = os.path.join("assets", "Nova_imagem.ico")
+        self.iconbitmap(caminho_icone)
+
         self.geometry("900x550")
         self.minsize(700, 450)
 
         self.configure(fg_color="#0b0b0f")
-
         # Layout principal
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -28,7 +36,7 @@ class NovaApp(ctk.CTk):
             self.sidebar,
             text="NOVA",
             font=("Segoe UI", 28, "bold"),
-            text_color="#ff2b2b"
+            text_color="#ab19ff"
         )
         self.logo.pack(pady=(30, 5))
 
@@ -65,7 +73,7 @@ class NovaApp(ctk.CTk):
 
         self.titulo = ctk.CTkLabel(
             self.main,
-            text="Olá, Victor. Como posso ajudar?",
+            text="Olá, Victor. \nO que vamos fazer hoje?",
             font=("Segoe UI", 24, "bold"),
             text_color="#ffffff"
         )
@@ -92,7 +100,7 @@ class NovaApp(ctk.CTk):
             placeholder_text="Digite um comando... ex: abra o navegador",
             height=45,
             fg_color="#15151c",
-            border_color="#ff2b2b",
+            border_color="#58008b",
             text_color="#ffffff",
             font=("Segoe UI", 14)
         )
@@ -103,8 +111,8 @@ class NovaApp(ctk.CTk):
             self.input_frame,
             text="Enviar",
             height=45,
-            fg_color="#b80000",
-            hover_color="#ff2b2b",
+            fg_color="#58008b",
+            hover_color="#692a8d",
             font=("Segoe UI", 14, "bold"),
             command=self.enviar_comando
         )
@@ -126,9 +134,51 @@ class NovaApp(ctk.CTk):
 
         self.escrever_chat(f"Você: {comando}")
 
-        # Processar o comando e obter a resposta
-        resposta = processar_comando(comando)
+        intencao = interpretar_local(comando)
 
+        if intencao:
+            acao = intencao["acao"]
+            valor = intencao["valor"]
+
+            if acao == "pesquisar":
+                if not valor:
+                    self.escrever_chat("Nova: Me diga o que você quer pesquisar.")
+                    return
+
+                pesquisa = pesquisar_wikipedia(valor)
+                self.escrever_chat(f"Nova: {pesquisa}")
+                return
+
+        # Se a Nova estiver esperando o conteúdo do arquivo
+        if self.aguardando_arquivo:
+            with open(self.nome_arquivo, "w", encoding="utf-8") as arquivo:
+                arquivo.write(comando)
+
+            self.escrever_chat(
+                f"Nova: Arquivo '{self.nome_arquivo}' criado com sucesso."
+            )
+
+            self.aguardando_arquivo = False
+            self.nome_arquivo = ""
+            return
+
+        # Se o usuário pediu para criar arquivo
+        if comando.lower().startswith("criar arquivo"):
+            partes = comando.split()
+
+            if len(partes) >= 3:
+                self.nome_arquivo = partes[2]
+                self.aguardando_arquivo = True
+
+                self.escrever_chat(
+                    f"Nova: O que deseja escrever em '{self.nome_arquivo}'?"
+                )
+                return
+            else:
+                self.escrever_chat("Nova: Me diga o nome do arquivo também.")
+                return
+
+        resposta = processar_comando(comando)
         self.escrever_chat(f"Nova: {resposta}")
 
 

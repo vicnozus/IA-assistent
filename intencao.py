@@ -1,38 +1,78 @@
-pesquisar = ["pesquisar", "pesquisa", "busca", "buscar", "procura", "procurar"]
-comando_arquivo = ["criar", "crie", "faça", "faz"]
-extrair = ["extrair", "extraia"]
-apps = ["abrir", "abri", "abra", "abre"]
+INTENCOES = {
+    "pesquisar": {
+        "acao": "pesquisar",
+        "gatilhos": ["pesquisar", "pesquisa", "buscar", "busca", "procurar", "procura", "encontrar", "encontra", "procure", "pesquise"]
+    },
+    "abrir_app": {
+        "acao": "abrir_app",
+        "gatilhos": ["abrir", "abra", "abre", "abri"]
+    },
+    "criar_arquivo": {
+        "acao": "criar_arquivo",
+        "gatilhos": ["criar", "crie", "fazer", "faça", "faz"],
+        "obrigatorias": ["arquivo"]
+    },
+    "extrair_zip": {
+        "acao": "extrair_zip",
+        "gatilhos": ["extrair", "extraia", "descompactar", "descompacte"]
+    }
+}
+
+PALAVRAS_IGNORAR = [
+    "o", "a", "os", "as",
+    "um", "uma", "é", "são",
+    "para", "pra", "mim",
+    "por", "favor", "pa",
+    "porfavor", "que", "qual", "quais",
+    "me", "minha", "meu",
+]
+
+
+def limpar_valor(valor):
+    palavras = valor.lower().split()
+    palavras_filtradas = []
+
+    for palavra in palavras:
+        if palavra not in PALAVRAS_IGNORAR:
+            palavras_filtradas.append(palavra)
+
+    return " ".join(palavras_filtradas).strip()
 
 
 def interpretar_local(comando):
     comando = comando.lower().strip()
+    palavras = comando.split()
 
-    for palavra in pesquisar:
-        if palavra in comando:
-            valor = comando.replace(palavra, "").strip()
-            return {"acao": "pesquisar", "valor": valor}
+    for nome_intencao, dados in INTENCOES.items():
+        gatilhos = dados["gatilhos"]
+        obrigatorias = dados.get("obrigatorias", [])
 
-    for palavra in apps:
-        if palavra in comando:
-            valor = comando.replace(palavra, "").strip()
-            return {"acao": "abrir_app", "valor": valor}
+        encontrou_gatilho = False
+        gatilho_usado = ""
 
-    for palavra in comando_arquivo:
-        if palavra in comando and "arquivo" in comando:
-            valor = comando.replace(palavra, "").replace("arquivo", "").strip()
-            return {"acao": "criar_arquivo", "valor": valor}
+        for gatilho in gatilhos:
+            if gatilho in palavras:
+                encontrou_gatilho = True
+                gatilho_usado = gatilho
+                break
 
-    for palavra in extrair:
-        if palavra in comando:
-            valor = comando.replace(palavra, "").strip()
-            return {"acao": "extrair_zip", "valor": valor}
+        if not encontrou_gatilho:
+            continue
+
+        for obrigatoria in obrigatorias:
+            if obrigatoria not in palavras:
+                continue
+
+        valor = comando.replace(gatilho_usado, "").strip()
+
+        for obrigatoria in obrigatorias:
+            valor = valor.replace(obrigatoria, "").strip()
+
+        valor = limpar_valor(valor)
+
+        return {
+            "acao": dados["acao"],
+            "valor": valor
+        }
 
     return None
-
-def limpar_valor(valor):
-    palavras_ignorar = ["o", "a", "os", "as", "um", "uma", "para", "pra", "mim", "por", "favor"]
-    
-    palavras = valor.lower().split()
-    palavras_filtradas = [p for p in palavras if p not in palavras_ignorar]
-
-    return " ".join(palavras_filtradas).strip()

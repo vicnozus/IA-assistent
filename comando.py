@@ -1,4 +1,5 @@
 import os
+import wikipedia
 import subprocess
 import webbrowser
 import zipfile
@@ -60,10 +61,63 @@ def abrir_app(nome_app):
             print(f"⚠️ Erro no startfile, tentando método secundário...")
             os.system(f'start "" "{encontrado}"')
 
-def pesquisar_google(termo):
-    url = f"https://www.google.com/search?q={termo.replace(' ', '+')}"
-    print(f"🔍 Pesquisando no Google: {termo}")
-    webbrowser.open(url)
+
+import requests
+
+
+def pesquisar_wikipedia(termo):
+    try:
+        headers = {
+            "User-Agent": "NovaAssistente/1.0"
+        }
+
+        # 1. Pesquisa o termo na Wikipédia
+        url_busca = "https://pt.wikipedia.org/w/api.php"
+
+        params_busca = {
+            "action": "query",
+            "list": "search",
+            "srsearch": termo,
+            "format": "json",
+            "utf8": 1
+        }
+
+        resposta = requests.get(url_busca, params=params_busca, headers=headers, timeout=10)
+        dados = resposta.json()
+
+        resultados = dados.get("query", {}).get("search", [])
+
+        if not resultados:
+            return "Não encontrei nada sobre isso. Tenta pesquisar com outro nome."
+
+        titulo = resultados[0]["title"]
+
+        # 2. Pega o resumo da página encontrada
+        params_resumo = {
+            "action": "query",
+            "prop": "extracts",
+            "exintro": True,
+            "explaintext": True,
+            "titles": titulo,
+            "format": "json",
+            "utf8": 1
+        }
+
+        resposta = requests.get(url_busca, params=params_resumo, headers=headers, timeout=10)
+        dados = resposta.json()
+
+        paginas = dados.get("query", {}).get("pages", {})
+
+        for pagina in paginas.values():
+            resumo = pagina.get("extract", "")
+
+            if resumo:
+                return resumo[:800] + "..."
+
+        return "Encontrei a página, mas ela não tem resumo disponível."
+
+    except Exception as erro:
+        return f"Deu erro na pesquisa: {erro}"
 
 def criar_arquivo_texto(valor):
     try:
@@ -103,14 +157,14 @@ def processar_comando(comando_usuario):
     acao = dados.get("acao")
     valor = dados.get("valor")
     valor = limpar_valor(valor)
-    
+
     if acao == "abrir_app":
         abrir_app(valor)
         return f"🚀 Abrindo aplicativo: {valor}"
 
     elif acao == "pesquisar":
-        pesquisar_google(valor)
-        return f"🔍 Pesquisando: {valor}"
+        pesquisar_wikipedia(valor)
+        return f"🔍 Pesquisando na Wikipedia: {valor}"
 
     elif acao == "criar_arquivo":
         criar_arquivo_texto(valor)
