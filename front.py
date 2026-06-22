@@ -43,25 +43,65 @@ class NovaApp(ctk.CTk):
         ).pack(pady=(0, 25))
         ctk.CTkLabel(self.sidebar, text="● Online", text_color="#45aa71", font=("Segoe UI", 14)).pack(pady=(0, 20))
 
-        self.btn_chat = ctk.CTkButton(self.sidebar, text="Chat", command=self.mostrar_chat)
-        self.btn_historico = ctk.CTkButton(self.sidebar, text="Histórico", command=self.mostrar_historico)
-        self.btn_config = ctk.CTkButton(self.sidebar, text="Configurações", command=self.mostrar_configuracoes)
-        for botao in (self.btn_chat, self.btn_historico, self.btn_config):
-            botao.pack(fill="x", padx=20, pady=5)
+        self.btn_chat = ctk.CTkButton(
+        self.sidebar,
+        text="💬  Conversa",
+        anchor="w",
+        height=42,
+        corner_radius=0,
+        fg_color="transparent",
+        hover_color=("#ddddE8", "#241528"),
+        text_color=("#333333", "#dddddd"),
+        command=self.mostrar_chat,
+    )
 
-        self.main = ctk.CTkFrame(self, fg_color=("#f4f4f8", "#0b0b0f"), corner_radius=0)
-        self.main.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
-        self.main.grid_columnconfigure(0, weight=1)
-        self.main.grid_rowconfigure(1, weight=1)
-        self.mostrar_chat()
+        self.btn_historico = ctk.CTkButton(
+            self.sidebar,
+            text="◷  Histórico",
+            anchor="w",
+            height=42,
+            corner_radius=0,
+            fg_color="transparent",
+            hover_color=("#ddddE8", "#1f1f2a"),
+            text_color=("#333333", "#aaaaaa"),
+            command=self.mostrar_historico,
+        )
+
+        self.btn_config = ctk.CTkButton(
+            self.sidebar,
+            text="⚙  Configurações",
+            anchor="w",
+            height=42,
+            corner_radius=0,
+            fg_color="transparent",
+            hover_color=("#ddddE8", "#1f1f2a"),
+            text_color=("#333333", "#aaaaaa"),
+            command=self.mostrar_configuracoes,
+        )
+
+        for botao in (self.btn_chat, self.btn_historico, self.btn_config):
+            botao.pack(fill="x", padx=0, pady=2)
 
     def limpar_main(self):
         for widget in self.main.winfo_children():
             widget.destroy()
 
     def atualizar_menu(self, ativo):
-        for nome, botao in (("chat", self.btn_chat), ("historico", self.btn_historico), ("config", self.btn_config)):
-            botao.configure(fg_color="#58008b" if nome == ativo else ("#d7d7e0", "#1f1f2a"))
+        for nome, botao in (
+            ("chat", self.btn_chat),
+            ("historico", self.btn_historico),
+            ("config", self.btn_config),
+        ):
+            if nome == ativo:
+                botao.configure(
+                    fg_color=("#eadfff", "#2a102f"),
+                    text_color=("#58008b", "#ffffff"),
+                )
+            else:
+                botao.configure(
+                    fg_color="transparent",
+                    text_color=("#555555", "#aaaaaa"),
+                )
 
     def mostrar_chat(self):
         self.atualizar_menu("chat")
