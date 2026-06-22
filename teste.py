@@ -1,5 +1,8 @@
-import wikipedia
+"""Pequena demonstração manual da interpretação local de comandos."""
 
-wikipedia.set_lang("pt")
+from intencao import interpretar_local
 
-print(wikipedia.search("java"))
+
+if __name__ == "__main__":
+    for comando in ("pesquise Python", "abra o bloco de notas", "crie arquivo ideias"):
+        print(f"{comando!r} -> {interpretar_local(comando)}")

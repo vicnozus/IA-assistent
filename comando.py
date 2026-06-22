@@ -1,178 +1,154 @@
+"""Ações executadas pela Nova, sem código específico da interface."""
+
 import os
-import wikipedia
-import subprocess
-import webbrowser
+from functools import lru_cache
+from pathlib import Path
 import zipfile
+
+import requests
 import win32com.client
-from ia_key import inteligencia_assistente 
+
+from ia_key import inteligencia_assistente
 from intencao import interpretar_local, limpar_valor
 
-# --- FUNÇÕES DE APOIO ---
 
 def resolver_atalho(caminho_atalho):
     try:
         shell = win32com.client.Dispatch("WScript.Shell")
-        atalho = shell.CreateShortcut(caminho_atalho)
-        return atalho.TargetPath
-    except:
-        return caminho_atalho
+        return shell.CreateShortcut(str(caminho_atalho)).TargetPath
+    except Exception:
+        return str(caminho_atalho)
 
+
+@lru_cache(maxsize=1)
 def buscar_apps_instalados():
+    """Monta o catálogo apenas quando for necessário abrir um aplicativo."""
     pastas_atalhos = [
-        os.path.join(os.environ["ProgramData"], "Microsoft", "Windows", "Start Menu", "Programs"),
-        os.path.join(os.environ["AppData"], "Microsoft", "Windows", "Start Menu", "Programs")
+        Path(os.environ.get("ProgramData", "")) / "Microsoft/Windows/Start Menu/Programs",
+        Path(os.environ.get("AppData", "")) / "Microsoft/Windows/Start Menu/Programs",
     ]
-    
-    meus_apps = {}
+    apps = {}
     for pasta in pastas_atalhos:
-        if os.path.exists(pasta):
-            for raiz, dirs, arquivos in os.walk(pasta):
-                for arquivo in arquivos:
-                    if arquivo.endswith(".lnk"):
-                        nome_limpo = arquivo.replace(".lnk", "").lower()
-                        caminho_completo = os.path.join(raiz, arquivo)
-                        meus_apps[nome_limpo] = caminho_completo
-    return meus_apps
+        if pasta.exists():
+            for atalho in pasta.rglob("*.lnk"):
+                apps.setdefault(atalho.stem.casefold(), atalho)
+    return apps
 
-# Agora sim o catálogo é carregado corretamente
-CATALOGO_APPS = buscar_apps_instalados()
-
-# --- AÇÕES DO ASSISTENTE ---
 
 def abrir_app(nome_app):
-    nome_app = nome_app.lower()
-    encontrado = None
-    nome_real = ""
-    
-    for nome_no_pc in CATALOGO_APPS:
-        if nome_app in nome_no_pc:
-            encontrado = CATALOGO_APPS[nome_no_pc]
-            nome_real = nome_no_pc
-            break
-            
-    if encontrado:
-        # Se for atalho (.lnk), resolve para o caminho real (.exe)
-        caminho_final = resolver_atalho(encontrado) if encontrado.endswith(".lnk") else encontrado
+    nome_app = limpar_valor(nome_app).casefold()
+    if not nome_app:
+        return "Me diga qual aplicativo você quer abrir."
 
-        print(f"🚀 Tentando abrir: {caminho_final}")
-        try:
-            os.startfile(caminho_final)
-        except Exception as e:
-            print(f"⚠️ Erro no startfile, tentando método secundário...")
-            os.system(f'start "" "{encontrado}"')
+    encontrados = [
+        (nome, caminho) for nome, caminho in buscar_apps_instalados().items() if nome_app in nome
+    ]
+    if not encontrados:
+        return f"Não encontrei um aplicativo chamado '{nome_app}'."
 
-
-import requests
+    nome_real, caminho = min(encontrados, key=lambda item: (len(item[0]), item[0]))
+    try:
+        os.startfile(str(caminho))
+        return f"Abrindo aplicativo: {nome_real}."
+    except OSError as erro:
+        return f"Não consegui abrir '{nome_real}': {erro}."
 
 
 def pesquisar_wikipedia(termo):
+    termo = limpar_valor(termo)
+    if not termo:
+        return "Me diga o que você quer pesquisar."
+
     try:
-        headers = {
-            "User-Agent": "NovaAssistente/1.0"
-        }
-
-        # 1. Pesquisa o termo na Wikipédia
-        url_busca = "https://pt.wikipedia.org/w/api.php"
-
-        params_busca = {
-            "action": "query",
-            "list": "search",
-            "srsearch": termo,
-            "format": "json",
-            "utf8": 1
-        }
-
-        resposta = requests.get(url_busca, params=params_busca, headers=headers, timeout=10)
-        dados = resposta.json()
-
-        resultados = dados.get("query", {}).get("search", [])
-
+        url = "https://pt.wikipedia.org/w/api.php"
+        headers = {"User-Agent": "NovaAssistente/1.0"}
+        busca = requests.get(
+            url,
+            params={"action": "query", "list": "search", "srsearch": termo, "format": "json", "utf8": 1},
+            headers=headers,
+            timeout=10,
+        )
+        busca.raise_for_status()
+        resultados = busca.json().get("query", {}).get("search", [])
         if not resultados:
-            return "Não encontrei nada sobre isso. Tenta pesquisar com outro nome."
+            return "Não encontrei nada sobre isso. Tente outro termo."
 
-        titulo = resultados[0]["title"]
-
-        # 2. Pega o resumo da página encontrada
-        params_resumo = {
-            "action": "query",
-            "prop": "extracts",
-            "exintro": True,
-            "explaintext": True,
-            "titles": titulo,
-            "format": "json",
-            "utf8": 1
-        }
-
-        resposta = requests.get(url_busca, params=params_resumo, headers=headers, timeout=10)
-        dados = resposta.json()
-
-        paginas = dados.get("query", {}).get("pages", {})
-
-        for pagina in paginas.values():
-            resumo = pagina.get("extract", "")
-
-            if resumo:
-                return resumo[:800] + "..."
-
+        resumo = requests.get(
+            url,
+            params={
+                "action": "query", "prop": "extracts", "exintro": True, "explaintext": True,
+                "titles": resultados[0]["title"], "format": "json", "utf8": 1,
+            },
+            headers=headers,
+            timeout=10,
+        )
+        resumo.raise_for_status()
+        for pagina in resumo.json().get("query", {}).get("pages", {}).values():
+            texto = pagina.get("extract", "").strip()
+            if texto:
+                return texto[:800] + ("..." if len(texto) > 800 else "")
         return "Encontrei a página, mas ela não tem resumo disponível."
+    except requests.RequestException:
+        return "Não consegui pesquisar agora. Verifique sua conexão e tente novamente."
+    except ValueError:
+        return "A Wikipédia retornou uma resposta inválida. Tente novamente."
 
-    except Exception as erro:
-        return f"Deu erro na pesquisa: {erro}"
 
-def criar_arquivo_texto(valor):
+def preparar_nome_arquivo(nome):
+    """Aceita apenas um nome de arquivo, evitando escrita em pastas arbitrárias."""
+    nome = limpar_valor(nome).strip()
+    if not nome:
+        raise ValueError("Me diga o nome do arquivo.")
+    caminho = Path(nome)
+    if caminho.name != nome or nome in {".", ".."}:
+        raise ValueError("Use apenas um nome de arquivo, sem pastas.")
+    return caminho.with_suffix(caminho.suffix or ".txt")
+
+
+def criar_arquivo_texto(nome, conteudo):
     try:
-        nome = valor.strip()
-        if "." not in nome: nome += ".txt"
-        
-        conteudo = input(f"O que deseja escrever em '{nome}': ")
-        with open(nome, "w", encoding="utf-8") as arquivo:
-            arquivo.write(conteudo)
-        print(f"✅ Arquivo '{nome}' criado com sucesso!")
-    except Exception as e:
-        print("❌ Erro ao criar o arquivo:", e)
+        caminho = preparar_nome_arquivo(nome)
+        caminho.write_text(conteudo, encoding="utf-8")
+        return f"Arquivo '{caminho.name}' criado com sucesso."
+    except (OSError, ValueError) as erro:
+        return f"Não consegui criar o arquivo: {erro}"
+
 
 def extrair_zip(valor):
     try:
-        # Lógica simples: extrai o zip para uma pasta com o mesmo nome
-        destino = valor.replace(".zip", "")
-        os.makedirs(destino, exist_ok=True)
-        with zipfile.ZipFile(valor, 'r') as zip_ref:
+        arquivo_zip = Path(limpar_valor(valor))
+        if arquivo_zip.suffix.casefold() != ".zip":
+            return "Me informe um arquivo com extensão .zip."
+        destino = arquivo_zip.with_suffix("")
+        destino.mkdir(exist_ok=True)
+        destino_resolvido = destino.resolve()
+        with zipfile.ZipFile(arquivo_zip) as zip_ref:
+            for membro in zip_ref.infolist():
+                destino_membro = (destino / membro.filename).resolve()
+                if not destino_membro.is_relative_to(destino_resolvido):
+                    return "O ZIP contém um caminho inseguro e não foi extraído."
             zip_ref.extractall(destino)
-        print(f"✅ Extraído com sucesso para /{destino}!")
-    except Exception as e:
-        print("❌ Erro ao extrair:", e)
+        return f"ZIP extraído com sucesso para '{destino}'."
+    except (OSError, zipfile.BadZipFile) as erro:
+        return f"Não consegui extrair o ZIP: {erro}"
 
-# --- LOOP PRINCIPAL ---
-print("Assistente IA Ativo!")
 
 def processar_comando(comando_usuario):
-    dados = interpretar_local(comando_usuario)
-
-    if not dados:
-        dados = inteligencia_assistente(comando_usuario)
-
-    if not dados:
-        return "📴 Falha na conexão com o cérebro."
+    dados = interpretar_local(comando_usuario) or inteligencia_assistente(comando_usuario)
+    if not isinstance(dados, dict):
+        return "Não consegui entender esse comando."
 
     acao = dados.get("acao")
-    valor = dados.get("valor")
-    valor = limpar_valor(valor)
+    valor = dados.get("valor", "")
+    if not isinstance(valor, str):
+        return "O comando recebido está em um formato inválido."
 
     if acao == "abrir_app":
-        abrir_app(valor)
-        return f"🚀 Abrindo aplicativo: {valor}"
-
-    elif acao == "pesquisar":
-        pesquisar_wikipedia(valor)
-        return f"🔍 Pesquisando na Wikipedia: {valor}"
-
-    elif acao == "criar_arquivo":
-        criar_arquivo_texto(valor)
-        return f"📄 Criando arquivo: {valor}"
-
-    elif acao == "extrair_zip":
-        extrair_zip(valor)
-        return f"📦 Extraindo ZIP: {valor}"
-
-    return f"🤔 Ação '{acao}' ainda não implementada."
-
+        return abrir_app(valor)
+    if acao == "pesquisar":
+        return pesquisar_wikipedia(valor)
+    if acao == "extrair_zip":
+        return extrair_zip(valor)
+    if acao == "criar_arquivo":
+        return "Diga o nome do arquivo e, em seguida, o conteúdo que deseja salvar."
+    return "Ainda não sei realizar essa ação."

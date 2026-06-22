@@ -1,43 +1,33 @@
+"""Integração opcional com Gemini para comandos não reconhecidos localmente."""
+
+import json
 import os
+
 from dotenv import load_dotenv
 from google import genai
-import json
 
-load_dotenv() # Isso carrega o arquivo .env
-chave = os.getenv("GEMINI_KEY")
-client = genai.Client(api_key=chave)
+load_dotenv()
+ACOES_PERMITIDAS = {"pesquisar", "abrir_app", "criar_arquivo", "extrair_zip"}
+
 
 def inteligencia_assistente(comando_usuario):
-    # Usando o modelo que o diagnóstico aprovou!
-    modelo_vitorioso = 'models/gemini-2.5-flash'
-    
-    prompt = f"""
-    Você é o motor de um assistente de PC.
-    Converta o comando do usuário em um JSON puro.
-    
-    Ações: "pesquisar", "abrir_app", "criar_arquivo", "extrair_zip".
-    
-    Exemplo: "procure python no google" -> {{"acao": "pesquisar", "valor": "python"}}
-    
-    Comando do usuário: "{comando_usuario}"
-    Responda APENAS o JSON, sem markdown.
-    """
-    
-    try:
-        response = client.models.generate_content(
-            model=modelo_vitorioso,
-            contents=prompt
-        )
-        
-        # Limpeza para garantir que o JSON seja lido corretamente
-        texto = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(texto)
-        
-    except Exception as e:
-        print(f"Erro no processamento: {e}")
+    chave = os.getenv("GEMINI_KEY")
+    if not chave:
         return None
 
-if __name__ == "__main__":
-    # Teste de fogo!
-    teste = inteligencia_assistente("abre o vscode pra mim")
-    print(f"Resultado do cérebro: {teste}")
+    prompt = f'''Você é o motor de um assistente de PC.
+Converta o comando do usuário em um JSON puro.
+Ações permitidas: "pesquisar", "abrir_app", "criar_arquivo", "extrair_zip".
+Formato: {{"acao": "uma ação permitida", "valor": "texto"}}.
+Comando do usuário: {comando_usuario!r}
+Responda apenas o JSON, sem markdown.'''
+    try:
+        client = genai.Client(api_key=chave)
+        response = client.models.generate_content(model="models/gemini-2.5-flash", contents=prompt)
+        texto = response.text.replace("```json", "").replace("```", "").strip()
+        dados = json.loads(texto)
+        if not isinstance(dados, dict) or dados.get("acao") not in ACOES_PERMITIDAS:
+            return None
+        return dados
+    except (json.JSONDecodeError, AttributeError, ValueError):
+        return None
