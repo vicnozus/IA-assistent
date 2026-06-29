@@ -33,16 +33,17 @@ class NovaApp(ctk.CTk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        self.sidebar = ctk.CTkFrame(self, width=220, fg_color=("#e7e7ed", "#111116"), corner_radius=0)
+        self.sidebar = ctk.CTkFrame(self, width=220, fg_color=("#e7e7ed", "#000000"), corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsw")
         self.sidebar.grid_propagate(False)
 
-        ctk.CTkLabel(self.sidebar, text="NOVA", font=("Segoe UI", 28, "bold"), text_color="#ab19ff").pack(pady=(30, 5))
-        ctk.CTkLabel(
-            self.sidebar, text="Assistente Inteligente", font=("Segoe UI", 13), text_color=("#555555", "#aaaaaa")
-        ).pack(pady=(0, 25))
-        ctk.CTkLabel(self.sidebar, text="● Online", text_color="#45aa71", font=("Segoe UI", 14)).pack(pady=(0, 20))
-
+        self.logo = ctk.CTkLabel(
+        self.sidebar,
+        text="◉",
+        font=("Segoe UI", 32),
+        text_color="#ab19ff"
+        )
+        self.logo.pack(pady=(25, 20))
         self.btn_chat = ctk.CTkButton(
         self.sidebar,
         text="💬  Conversa",
@@ -81,6 +82,17 @@ class NovaApp(ctk.CTk):
 
         for botao in (self.btn_chat, self.btn_historico, self.btn_config):
             botao.pack(fill="x", padx=0, pady=2)
+
+        self.main = ctk.CTkFrame(
+            self,
+            fg_color=("#f4f4f8", "#0b0b0f"),
+            corner_radius=0,
+        )
+        self.main.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
+        self.main.grid_columnconfigure(0, weight=1)
+        self.main.grid_rowconfigure(1, weight=1)
+
+        self.mostrar_chat()
 
     def limpar_main(self):
         for widget in self.main.winfo_children():
