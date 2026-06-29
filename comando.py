@@ -1,54 +1,36 @@
 """Ações executadas pela Nova, sem código específico da interface."""
 
 import os
-from functools import lru_cache
+import subprocess
 from pathlib import Path
 import zipfile
 
 import requests
-import win32com.client
 
+from abrir_app import resolver_app
 from ia_key import inteligencia_assistente
 from intencao import interpretar_local, limpar_valor
 
 
-def resolver_atalho(caminho_atalho):
-    try:
-        shell = win32com.client.Dispatch("WScript.Shell")
-        return shell.CreateShortcut(str(caminho_atalho)).TargetPath
-    except Exception:
-        return str(caminho_atalho)
-
-
-@lru_cache(maxsize=1)
-def buscar_apps_instalados():
-    """Monta o catálogo apenas quando for necessário abrir um aplicativo."""
-    pastas_atalhos = [
-        Path(os.environ.get("ProgramData", "")) / "Microsoft/Windows/Start Menu/Programs",
-        Path(os.environ.get("AppData", "")) / "Microsoft/Windows/Start Menu/Programs",
-    ]
-    apps = {}
-    for pasta in pastas_atalhos:
-        if pasta.exists():
-            for atalho in pasta.rglob("*.lnk"):
-                apps.setdefault(atalho.stem.casefold(), atalho)
-    return apps
-
-
 def abrir_app(nome_app):
-    nome_app = limpar_valor(nome_app).casefold()
+    nome_app = limpar_valor(nome_app)
     if not nome_app:
         return "Me diga qual aplicativo você quer abrir."
 
-    encontrados = [
-        (nome, caminho) for nome, caminho in buscar_apps_instalados().items() if nome_app in nome
-    ]
-    if not encontrados:
+    encontrado = resolver_app(nome_app)
+    if not encontrado:
         return f"Não encontrei um aplicativo chamado '{nome_app}'."
 
-    nome_real, caminho = min(encontrados, key=lambda item: (len(item[0]), item[0]))
+    nome_real, caminho = encontrado
+
     try:
-        os.startfile(str(caminho))
+        caminho = Path(caminho)
+
+        if caminho.exists():
+            os.startfile(str(caminho))
+        else:
+            subprocess.Popen(str(caminho), shell=True)
+
         return f"Abrindo aplicativo: {nome_real}."
     except OSError as erro:
         return f"Não consegui abrir '{nome_real}': {erro}."
@@ -76,8 +58,13 @@ def pesquisar_wikipedia(termo):
         resumo = requests.get(
             url,
             params={
-                "action": "query", "prop": "extracts", "exintro": True, "explaintext": True,
-                "titles": resultados[0]["title"], "format": "json", "utf8": 1,
+                "action": "query",
+                "prop": "extracts",
+                "exintro": True,
+                "explaintext": True,
+                "titles": resultados[0]["title"],
+                "format": "json",
+                "utf8": 1,
             },
             headers=headers,
             timeout=10,
